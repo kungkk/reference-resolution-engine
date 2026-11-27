@@ -4,18 +4,17 @@ from __future__ import annotations
 
 from .models import (
     AssetEvidence,
-    AssetRetrievalStatus,
     CreativeReferenceRecord,
+    DeliveryReceipt,
     EditingTargetRecord,
     ExecutionDelivery,
     IdentitySourceRecord,
+    Operation,
     RecordStatus,
     ResolutionBundle,
     ResolutionRequest,
-    RightsStatus,
     SourceResolution,
     SourceRole,
-    VisualEvidence,
 )
 from .ports import (
     AssetEvidenceAdapter,
@@ -47,7 +46,7 @@ class ReferenceResolutionEngine:
             request.creative_reference_id
         )
         editing_target = None
-        if request.operation.value == "edit":
+        if request.operation is Operation.EDIT:
             # ResolutionRequest validates that this selector is present.
             assert request.editing_target_id is not None
             editing_target = self.resolve_editing_target(request.editing_target_id)
@@ -77,7 +76,7 @@ class ReferenceResolutionEngine:
                 "More than one primary original identity photograph matches this alias.",
             )
 
-        primary = primary_records[0]
+        primary: IdentitySourceRecord = primary_records[0]
         evidence = self._asset_evidence(primary.asset_locator)
         supporting_ids = tuple(
             record.source_id for record in records if record.source_id != primary.source_id
@@ -111,7 +110,7 @@ class ReferenceResolutionEngine:
                 "More than one creative-reference record matches this ID.",
             )
 
-        record = records[0]
+        record: CreativeReferenceRecord = records[0]
         evidence = self._asset_evidence(record.asset_locator)
         return SourceResolution(
             role=SourceRole.CREATIVE_REFERENCE,
@@ -123,6 +122,9 @@ class ReferenceResolutionEngine:
             visual_evidence=evidence.visual_evidence,
             execution_delivery=ExecutionDelivery.NOT_VERIFIABLE,
             rights_status=record.rights_status,
+            review_status=record.review_status,
+            transfer_scope=record.transfer_scope,
+            transfer_strength=record.transfer_strength,
             message="Single primary creative-reference record resolved.",
         )
 
@@ -181,8 +183,6 @@ class ReferenceResolutionEngine:
 
 def evaluate_delivery_receipt(receipt: object) -> ExecutionDelivery:
     """Return confirmed only for an explicit, exact source-ID echo."""
-    from .models import DeliveryReceipt
-
     if not isinstance(receipt, DeliveryReceipt):
         return ExecutionDelivery.NOT_VERIFIABLE
     if (
