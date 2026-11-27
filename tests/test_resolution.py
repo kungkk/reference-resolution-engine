@@ -51,7 +51,12 @@ class FakeAssetAdapter:
         return self.evidence_by_locator.get(asset_locator, AssetEvidence())
 
 
-def build_engine(identity_records=(), creative_records=(), target_records=(), asset_evidence=None):
+def build_engine(
+    identity_records=(),
+    creative_records=(),
+    target_records=(),
+    asset_evidence=None,
+):
     return ReferenceResolutionEngine(
         identity_adapter=FakeIdentityAdapter(list(identity_records)),
         creative_reference_adapter=FakeCreativeAdapter(list(creative_records)),
@@ -62,6 +67,17 @@ def build_engine(identity_records=(), creative_records=(), target_records=(), as
 
 def test_identity_alias_missing_is_reported_as_missing():
     result = build_engine().resolve_identity("@Charlotte")
+    assert result.record_status is RecordStatus.MISSING
+    assert result.source_id is None
+
+
+def test_supporting_identity_photo_cannot_replace_primary_original():
+    records = [
+        IdentitySourceRecord(
+            "support-1", "@Charlotte", "asset://support", is_primary_original=False
+        )
+    ]
+    result = build_engine(identity_records=records).resolve_identity("@Charlotte")
     assert result.record_status is RecordStatus.MISSING
     assert result.source_id is None
 
@@ -119,15 +135,23 @@ def test_duplicate_creative_reference_id_is_ambiguous():
     assert result.record_status is RecordStatus.AMBIGUOUS
 
 
-def test_creative_reference_preserves_rights_metadata():
+def test_creative_reference_preserves_rights_and_transfer_metadata():
     records = [
         CreativeReferenceRecord(
-            "CR-1", "asset://creative", "Approved", rights_status=RightsStatus.PERSONAL_ONLY
+            "CR-1",
+            "asset://creative",
+            "Approved",
+            rights_status=RightsStatus.PERSONAL_ONLY,
+            transfer_scope=("Hairstyle", "Lighting"),
+            transfer_strength=75,
         )
     ]
     result = build_engine(creative_records=records).resolve_creative_reference("CR-1")
     assert result.record_status is RecordStatus.RESOLVED
     assert result.rights_status is RightsStatus.PERSONAL_ONLY
+    assert result.review_status == "Approved"
+    assert result.transfer_scope == ("Hairstyle", "Lighting")
+    assert result.transfer_strength == 75
 
 
 def test_edit_operation_requires_explicit_target():
@@ -136,6 +160,15 @@ def test_edit_operation_requires_explicit_target():
             identity_alias="@Charlotte",
             creative_reference_id="CR-1",
             operation=Operation.EDIT,
+        )
+
+
+def test_request_rejects_non_enum_operation_value():
+    with pytest.raises(TypeError, match="operation must be an Operation"):
+        ResolutionRequest(
+            identity_alias="@Charlotte",
+            creative_reference_id="CR-1",
+            operation="edit",
         )
 
 
@@ -154,3 +187,14 @@ def test_edit_target_missing_is_reported_in_bundle():
     )
     assert bundle.editing_target is not None
     assert bundle.editing_target.record_status is RecordStatus.MISSING
+
+
+def test_duplicate_editing_target_is_ambiguous():
+    engine = build_engine(
+        target_records=[
+            EditingTargetRecord("target-1", "asset://target-a"),
+            EditingTargetRecord("target-1", "asset://target-b"),
+        ]
+    )
+    result = engine.resolve_editing_target("target-1")
+    assert result.record_status is RecordStatus.AMBIGUOUS
