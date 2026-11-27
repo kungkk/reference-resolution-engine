@@ -18,8 +18,18 @@ from .models import (
     VisualEvidence,
 )
 from .resolver import ReferenceResolutionEngine, evaluate_delivery_receipt
+from .library_import import (
+    ChatGPTLibraryIdentityAdapter,
+    LibraryImportError,
+    LibraryImportReceipt,
+    import_library_identity_photo,
+)
 
 __all__ = [
+    "ChatGPTLibraryIdentityAdapter",
+    "LibraryImportError",
+    "LibraryImportReceipt",
+    "import_library_identity_photo",
     "AssetEvidence",
     "AssetRetrievalStatus",
     "CreativeReferenceRecord",
