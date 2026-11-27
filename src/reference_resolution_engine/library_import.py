@@ -234,8 +234,29 @@ def import_library_identity_photo(
 
     if existing:
         if existing.get("asset_sha256") == asset_sha256:
-            if not cache_path.exists():
+            recorded_cache = Path(str(existing.get("local_cache_path", ""))).expanduser()
+            if recorded_cache.is_file():
+                recorded_hash, _ = _hash_file(recorded_cache)
+                if recorded_hash != asset_sha256:
+                    raise LibraryImportError("The existing identity cache failed SHA-256 verification.")
+                return LibraryImportReceipt(
+                    alias=alias,
+                    source_id=str(existing["source_id"]),
+                    asset_locator=str(recorded_cache.resolve()),
+                    library_asset_name=str(existing.get("library_asset_name") or source_path.name),
+                    asset_sha256=asset_sha256,
+                    byte_size=byte_size,
+                    media_type=media_type,
+                    imported_at=str(existing["imported_at"]),
+                )
+            if cache_path.exists():
+                cached_hash, _ = _hash_file(cache_path)
+                if cached_hash != asset_sha256:
+                    raise LibraryImportError("A cache file exists at the expected hash path but failed verification.")
+            else:
                 _copy_file_atomic(source_path, cache_path)
+            existing["local_cache_path"] = str(cache_path)
+            _write_registry_atomic(registry_path_obj, registry)
             return LibraryImportReceipt(
                 alias=alias,
                 source_id=str(existing["source_id"]),
