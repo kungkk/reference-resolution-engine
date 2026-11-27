@@ -51,6 +51,35 @@ tests/
   test_delivery.py
 ```
 
+## ChatGPT Library identity import bridge
+
+ChatGPT Library is the authoritative source for the user's selected original identity photograph. The engine has no direct Library API integration and does not synchronize with Library.
+
+The supported workflow is a deliberate manual handoff:
+
+1. The user selects and downloads the intended original photograph from ChatGPT Library.
+2. The user runs the import command and explicitly binds the downloaded file to an identity alias (for example, `@me`).
+3. The engine validates the file signature for JPEG, PNG, or WebP, computes SHA-256, and copies the image into a per-user local cache.
+4. A local JSON registry records the user-confirmed alias binding, Library display name, content hash, cache path, import timestamp, and unsynchronized status.
+5. The identity adapter resolves the registered primary original from that local index. Asset retrieval remains a separate evidence check.
+
+Example on Windows PowerShell:
+
+```powershell
+python -m reference_resolution_engine.library_import --alias "@me" --source "$HOME\Downloads\my-identity-photo.jpg"
+```
+
+The default registry and cache are stored outside the repository under the current user's application-data directory. They can be overridden with `--registry` and `--cache-dir`.
+
+Important boundaries:
+
+- The user must confirm that the downloaded file is the intended ChatGPT Library asset; the engine cannot independently verify Library provenance or retrieve a stable Library asset ID.
+- The local JSON registry is an operational index/cache manifest, not a replacement authority for the original image.
+- The cache is not synchronized. If the Library asset is replaced, removed, or reselected, the user must explicitly import it again.
+- An existing alias cannot be rebound to different image bytes unless `--replace-existing` is explicitly supplied. Previous cache files are not automatically deleted.
+- File signature checks are not full image decoding or visual identity verification.
+- The image bytes and registry must remain local; do not commit either to Git.
+
 ## Evidence semantics
 
 The following dimensions must not be collapsed into one confidence score:
@@ -65,4 +94,4 @@ A resolved record does not prove that its image bytes are accessible. Asset acce
 
 ## Current limitations
 
-This initial P0 package supplies adapter protocols and deterministic resolution logic. Concrete Notion/database adapters, visual inspection, execution-tool receipt integrations, attribute authorization, manifest serialization, approval binding, and workflow integrations are not implemented yet. No production or end-to-end capability is claimed.
+This P0 package supplies deterministic resolution logic and a manual ChatGPT Library import adapter. Concrete Creative References and editing-target adapters, visual inspection, execution-tool receipt integrations, attribute authorization, manifest serialization, approval binding, and workflow integrations are not implemented yet. No production or end-to-end capability is claimed.
