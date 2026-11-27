@@ -280,6 +280,10 @@ def import_library_identity_photo(
     else:
         _copy_file_atomic(source_path, cache_path)
 
+    cached_hash, cached_size = _hash_file(cache_path)
+    if cached_hash != asset_sha256 or cached_size != byte_size:
+        raise LibraryImportError("The imported cache copy failed SHA-256 or size verification.")
+
     imported_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     source_id = f"chatgpt-library:{alias}:{asset_sha256}"
     display_name = (library_asset_name or source_path.name).strip()
