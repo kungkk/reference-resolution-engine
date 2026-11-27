@@ -103,6 +103,9 @@ class SourceResolution:
     visual_evidence: VisualEvidence = VisualEvidence.NONE
     execution_delivery: ExecutionDelivery = ExecutionDelivery.NOT_VERIFIABLE
     rights_status: RightsStatus = RightsStatus.UNKNOWN
+    review_status: str | None = None
+    transfer_scope: tuple[str, ...] = ()
+    transfer_strength: int | None = None
     provenance_status: str = "unverified"
     supporting_source_ids: tuple[str, ...] = ()
     message: str = ""
@@ -122,12 +125,17 @@ class ResolutionRequest:
     editing_target_id: str | None = None
 
     def __post_init__(self) -> None:
-        if not self.identity_alias.strip():
-            raise ValueError("identity_alias must not be empty")
-        if not self.creative_reference_id.strip():
+        if not isinstance(self.identity_alias, str) or not self.identity_alias.strip():
+            raise ValueError("identity_alias must be a non-empty string")
+        if (
+            not isinstance(self.creative_reference_id, str)
+            or not self.creative_reference_id.strip()
+        ):
             raise ValueError("exactly one creative_reference_id is required")
+        if not isinstance(self.operation, Operation):
+            raise TypeError("operation must be an Operation value")
         if self.operation is Operation.EDIT and not (
-            self.editing_target_id and self.editing_target_id.strip()
+            isinstance(self.editing_target_id, str) and self.editing_target_id.strip()
         ):
             raise ValueError("editing_target_id is required for edit operations")
 
